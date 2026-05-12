@@ -10,7 +10,7 @@
 <header class="subpage-header">
   <h2>AI 执行详情</h2>
   <div class="filters">
-    <input type="search" id="q" placeholder="搜索用例 ID / 名称…" />
+    <input type="search" id="q" placeholder="搜索 ID / 名称 / 原因…" />
     <select id="filter-module"><option value="">全部模块</option></select>
     <select id="filter-type">
       <option value="">全部类型</option>
@@ -20,6 +20,7 @@
       <option value="">全部状态</option>
       <option>passed</option><option>failed</option><option>blocked</option><option>skipped</option>
     </select>
+    <button id="only-attention" class="chip" type="button">仅看待处理（失败+阻塞）</button>
   </div>
 </header>
 
@@ -31,44 +32,18 @@
       <th>名称</th>
       <th>模块</th>
       <th>类型</th>
-      <th>优先级</th>
+      <th>优先</th>
       <th>状态</th>
+      <th>原因 / 备注</th>
       <th>用时</th>
-      <th>Playwright</th>
+      <th>PW</th>
     </tr>
   </thead>
-  <tbody id="case-rows">
-    <!-- 行数据由脚本注入。下方是静态备用的模板行： -->
-    <!--
-    <tr class="case-row" data-case-id="{{ID}}" data-status="{{STATUS}}" data-module="{{MODULE}}" data-type="{{TYPE}}">
-      <td><button class="expand">▸</button></td>
-      <td><code>{{ID}}</code></td>
-      <td>{{NAME}}</td>
-      <td>{{MODULE}}</td>
-      <td>{{TYPE}}</td>
-      <td>{{PRIORITY}}</td>
-      <td><span class="badge {{STATUS}}">{{STATUS}}</span></td>
-      <td>{{DURATION}}</td>
-      <td>{{PW_LINK_OR_DASH}}</td>
-    </tr>
-    <tr class="case-detail" hidden>
-      <td colspan="9">
-        <div class="detail-grid">
-          <div class="steps">{{STEPS_MD_HTML}}</div>
-          <div class="screenshots">
-            <!-- 缩略图：<a href="../{{CASE_ID}}/screenshots/{{FILE}}"><img src="..."></a> -->
-          </div>
-        </div>
-        <details><summary>console.log</summary><pre>{{CONSOLE_LOG}}</pre></details>
-      </td>
-    </tr>
-    -->
-  </tbody>
+  <tbody id="case-rows"></tbody>
 </table>
 
 <script src="./assets/report.js"></script>
 <script>
-  // 用例数据 —— 由报告生成器从 meta.json 文件注入
   window.__AI_CASES__ = /* @AI_CASES_JSON@ */ [];
   if (window.AI_REPORT) window.AI_REPORT.render();
 </script>

@@ -14,6 +14,8 @@
   --skip-bg: #e5e7eb;
   --info: #2563eb;
   --info-bg: #dbeafe;
+  --row-blocked-bg: #fffbeb;
+  --row-failed-bg: #fef2f2;
 }
 
 * { box-sizing: border-box; }
@@ -57,7 +59,10 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px;
+  transition: transform 0.1s, box-shadow 0.1s;
 }
+.card[data-filter] { cursor: pointer; }
+.card[data-filter]:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 .card-label { color: var(--muted); font-size: 12px; }
 .card-value { font-size: 24px; font-weight: 600; margin: 4px 0; }
 .card-value span { color: var(--muted); font-size: 14px; font-weight: 400; }
@@ -93,13 +98,27 @@ body {
   background: var(--panel);
 }
 
-.coverage, .diff {
+.coverage, .diff, .pw-overview {
   background: var(--panel);
   margin: 20px 32px;
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: 8px;
 }
+.pw-overview h3 { margin: 0 0 12px; font-size: 14px; color: var(--fail); }
+.pw-overview .ok-line { color: var(--pass); font-weight: 500; margin: 0; }
+.pw-fail-list { list-style: none; padding: 0; margin: 0; }
+.pw-fail-list li {
+  border-left: 3px solid var(--fail);
+  background: var(--fail-bg);
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  border-radius: 0 4px 4px 0;
+}
+.pw-fail-list code { color: var(--muted); font-size: 12px; }
+.pw-fail-list strong { display: block; margin: 2px 0; }
+.pw-fail-list .err { font-family: ui-monospace, monospace; font-size: 12px; color: var(--fail); }
+
 table { width: 100%; border-collapse: collapse; margin-top: 12px; }
 th, td {
   text-align: left;
@@ -110,43 +129,105 @@ th { color: var(--muted); font-weight: 500; background: var(--bg); }
 
 /* Subpage (ai-run.html) */
 body.subpage { background: var(--panel); padding: 16px; }
-.subpage-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.subpage-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
 .subpage-header h2 { margin: 0; font-size: 16px; }
-.filters { display: flex; gap: 8px; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; }
 .filters input, .filters select {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 4px 8px;
   font-size: 13px;
 }
+.chip {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.chip.on { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
 
-.case-table { width: 100%; }
-.case-table .expand { background: none; border: none; cursor: pointer; }
+.case-table { width: 100%; table-layout: fixed; }
+.case-table th:nth-child(1), .case-table td:nth-child(1) { width: 32px; }
+.case-table th:nth-child(2), .case-table td:nth-child(2) { width: 80px; }
+.case-table th:nth-child(3), .case-table td:nth-child(3) { width: auto; }
+.case-table th:nth-child(4), .case-table td:nth-child(4) { width: 100px; }
+.case-table th:nth-child(5), .case-table td:nth-child(5) { width: 60px; }
+.case-table th:nth-child(6), .case-table td:nth-child(6) { width: 50px; }
+.case-table th:nth-child(7), .case-table td:nth-child(7) { width: 90px; }
+.case-table th:nth-child(8), .case-table td:nth-child(8) { width: 360px; }
+.case-table th:nth-child(9), .case-table td:nth-child(9) { width: 60px; }
+.case-table th:nth-child(10), .case-table td:nth-child(10) { width: 40px; }
+
+.case-table .expand { background: none; border: none; cursor: pointer; font-size: 12px; color: var(--muted); }
+.case-row td { vertical-align: middle; }
+.case-row td.reason {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.case-row.row-blocked { background: var(--row-blocked-bg); }
+.case-row.row-failed { background: var(--row-failed-bg); }
+.case-row.row-passed:nth-child(4n+1) { background: var(--bg); } /* zebra stripe for passed only */
+.case-row:hover { background: var(--info-bg); }
+
 .badge {
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
+  display: inline-block;
 }
 .badge.passed { background: var(--pass-bg); color: var(--pass); }
 .badge.failed { background: var(--fail-bg); color: var(--fail); }
 .badge.blocked { background: var(--warn-bg); color: var(--warn); }
 .badge.skipped { background: var(--skip-bg); color: var(--skip); }
+.pw-mark { color: var(--info); cursor: help; }
 
-.case-detail .detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  padding: 12px;
-  background: var(--bg);
+.case-detail td { background: var(--bg); padding: 16px 24px; }
+.case-detail .reason-box {
+  padding: 10px 14px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  border-left: 3px solid;
 }
-.screenshots { display: flex; flex-wrap: wrap; gap: 8px; }
-.screenshots a img {
-  width: 140px;
+.case-detail .reason-box strong { display: block; margin-bottom: 4px; font-size: 13px; }
+.case-detail .reason-box p { margin: 0; white-space: pre-wrap; font-size: 13px; }
+.case-detail .reason-box.blocked { border-color: var(--warn); background: var(--warn-bg); color: #92400e; }
+.case-detail .reason-box.skipped { border-color: var(--skip); background: var(--skip-bg); }
+.case-detail .reason-box.failed  { border-color: var(--fail); background: var(--fail-bg); color: #991b1b; }
+.case-detail .reason-box.info    { border-color: var(--info); background: var(--info-bg); color: #1e40af; }
+
+.case-detail .steps pre {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.case-detail .screenshots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.case-detail .screenshots a img {
+  width: 200px;
   height: auto;
   border: 1px solid var(--border);
   border-radius: 4px;
+  display: block;
 }
+
+.case-detail .pw-link { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+.case-detail .pw-link code { background: var(--panel); padding: 2px 4px; border-radius: 2px; }
+
+.muted { color: var(--muted); }
+
 details summary { cursor: pointer; padding: 8px 12px; color: var(--muted); }
 details pre {
   background: #0b1021;

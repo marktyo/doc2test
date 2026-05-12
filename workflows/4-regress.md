@@ -26,37 +26,49 @@ npx playwright test --reporter=html,json
 
 ## 生成 summary.json
 
-读取所有 `test/{version}/{case-id}/meta.json` 与 Playwright JSON 结果，按 `conventions/artifacts-layout.md` 的 schema 写出 `test/{version}/report/summary.json`。
+由 `scripts/build-report.mjs` 一并写出；schema 见 `conventions/artifacts-layout.md`。
 
 关键聚合：
 - `ai_run.total / passed / failed / blocked / skipped`
 - `ai_run.by_module`、`ai_run.by_type`
-- `playwright_run.total / passed / failed / duration_ms`
+- `playwright_run.total / passed / failed / duration_ms`（无 Playwright 结果时为 `null`）
 - `coverage_self_eval` —— 从大纲的「设计自评」章节读取
 - `diff_from_prev` —— 从 `prd-diff.md` 读取（v1.0 跳过）
 
 ## 构建统一 HTML dashboard
 
-将 `templates/report-index.html` 复制到 `test/{version}/report/index.html`，原地编辑：内联 `summary.json` 的数据，并把 iframe / 链接指向：
-- `ai-run.html`（下一步生成 —— AI 执行详情子页）
-- `playwright-html/index.html`（Playwright 自带报告）
+使用 SKILL 自带的报告生成器（**推荐方式**）：
 
-把 `templates/report-assets/*` 复制到 `test/{version}/report/assets/`。
+```bash
+node .claude/skills/doc2test/scripts/build-report.mjs \
+  --version {version} \
+  --project "{project-name}" \
+  [--prev {previous-version}]
+```
 
-### 生成 ai-run.html
+生成器会自动完成：
+- 读取所有 `test/{version}/{case-id}/meta.json`（+ 可选的 `steps.md`、`console.log`）
+- 读取 `test/{version}/report/playwright-results.json`（若已跑过 Playwright）
+- 渲染 `templates/report-index.html` → `test/{version}/report/index.html`
+- 渲染 `templates/report-ai-run.html` → `test/{version}/report/ai-run.html`
+- 拷贝 `templates/report-assets/*` → `test/{version}/report/assets/`
+- 写出 `test/{version}/report/summary.json`
+- 提取 Playwright 失败列表内联到 index 的「Playwright 回归」tab 顶部
 
-按 `meta.json` 渲染：
-- 顶部：汇总卡片（总数、通过、失败、阻塞、跳过）
-- 过滤 / 搜索栏（按模块、类型、状态、标签）
-- 用例列表 —— 每行可展开显示：
-  - `steps.md` 内容
-  - 截图缩略图（点击放大；相对报告目录的路径：`../{case-id}/screenshots/01-...png`）
-  - console.log 链接
-  - 对应的 Playwright test 链接（若已提炼）
-- 覆盖度自评章节
-- （迭代版本）相对上一版的差异章节
+### 生成的 ai-run.html 关键 UX
 
-HTML 必须自包含 —— 直接 `open index.html` 即可查看，所有相对链接可正常打开。
+- 顶部：5 张汇总卡片（通过 / 失败 / 阻塞+跳过 / 回归通过 / 回归失败）；前 3 张可点击直接筛选 AI 表
+- 「仅看待处理」按钮：一键过滤出 failed + blocked
+- 表格列：ID · 名称 · 模块 · 类型 · 优先级 · **状态** · **原因 / 备注**（行内显示 skip_reason / failure / notes，hover 看完整文本）· 用时 · PW 标
+- 行视觉：blocked = 浅黄背景、failed = 浅红背景、passed = 默认 / 斑马条纹
+- 展开区按优先级显示：先「原因」框（彩色边栏，blocked/failed/info），再 steps.md，再截图缩略图，最后 PW spec 链接与 console.log
+- 失败 / 阻塞用例**不需要 steps.md** 也能在行内立刻看到原因
+
+HTML 自包含 —— 直接 `open index.html` 即可查看。
+
+### 与 Playwright 的交叉链接
+
+每个 `meta.playwright_spec` 非空的用例，在 PW 列展示「▶」标记并以 `title` tooltip 给出 Playwright test 全名；展开区有 `Playwright spec: ... — test name` 文本行可复制。
 
 ### 与 Playwright 的交叉链接
 

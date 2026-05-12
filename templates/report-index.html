@@ -19,20 +19,20 @@
 </header>
 
 <section class="cards">
-  <div class="card pass">
+  <div class="card pass" data-filter="passed">
     <div class="card-label">通过</div>
     <div class="card-value">{{AI_PASSED}} <span>/ {{AI_TOTAL}}</span></div>
-    <div class="card-sub">AI 执行</div>
+    <div class="card-sub">AI 执行 · 点击查看</div>
   </div>
-  <div class="card fail">
+  <div class="card fail" data-filter="failed">
     <div class="card-label">失败</div>
     <div class="card-value">{{AI_FAILED}}</div>
-    <div class="card-sub">AI 执行</div>
+    <div class="card-sub">AI 执行 · 点击查看</div>
   </div>
-  <div class="card warn">
+  <div class="card warn" data-filter="blocked">
     <div class="card-label">阻塞 / 跳过</div>
     <div class="card-value">{{AI_BLOCKED}} / {{AI_SKIPPED}}</div>
-    <div class="card-sub">AI 执行</div>
+    <div class="card-sub">AI 执行 · 点击查看</div>
   </div>
   <div class="card pass">
     <div class="card-label">回归通过</div>
@@ -59,6 +59,7 @@
   </section>
 
   <section class="panel" id="panel-pw">
+    <div class="pw-overview" id="pw-summary"></div>
     <iframe src="./playwright-html/index.html" title="Playwright 回归详情"></iframe>
   </section>
 
@@ -98,8 +99,8 @@
 
 <script src="./assets/report.js"></script>
 <script>
-  // 内联汇总数据，供 JS 访问
   window.__SUMMARY__ = /* @SUMMARY_JSON@ */ null;
+  window.__PW_FAILURES__ = /* @PW_FAILURES_JSON@ */ [];
 </script>
 </body>
 </html>
