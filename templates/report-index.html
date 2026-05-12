@@ -75,6 +75,10 @@
           <tr><td>Pairwise</td><td>已应用</td><td>{{COV_PW}}</td><td>{{COV_PW_STATUS}}</td></tr>
         </tbody>
       </table>
+
+      <h3>按模块通过率</h3>
+      <div id="module-breakdown"></div>
+
       <h3>风险与建议</h3>
       <div id="risks">{{RISKS_HTML}}</div>
     </div>
@@ -97,10 +101,11 @@
   </section>
 </main>
 
-<script src="./assets/report.js"></script>
 <script>
+  /* Data must be defined BEFORE report.js to avoid race conditions. */
   window.__SUMMARY__ = /* @SUMMARY_JSON@ */ null;
   window.__PW_FAILURES__ = /* @PW_FAILURES_JSON@ */ [];
 </script>
+<script src="./assets/report.js"></script>
 </body>
 </html>

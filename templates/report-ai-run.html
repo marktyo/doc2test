@@ -36,16 +36,15 @@
       <th>状态</th>
       <th>原因 / 备注</th>
       <th>用时</th>
-      <th>PW</th>
     </tr>
   </thead>
   <tbody id="case-rows"></tbody>
 </table>
 
-<script src="./assets/report.js"></script>
 <script>
+  /* Data must be defined BEFORE report.js to avoid race conditions. */
   window.__AI_CASES__ = /* @AI_CASES_JSON@ */ [];
-  if (window.AI_REPORT) window.AI_REPORT.render();
 </script>
+<script src="./assets/report.js"></script>
 </body>
 </html>

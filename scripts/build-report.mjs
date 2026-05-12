@@ -109,9 +109,15 @@ function buildVersionReport({ version, project, prev, root }) {
     pwTests = flattenPlaywrightResults(raw);
     pwStats = raw.stats || null;
   }
-  const pwCounts = { passed: 0, failed: 0, skipped: 0, timedOut: 0 };
-  for (const t of pwTests) pwCounts[t.status] = (pwCounts[t.status] || 0) + 1;
-  const pwFailures = pwTests.filter((t) => t.status === 'failed' || t.status === 'timedOut');
+  // Treat 'timedOut' / 'interrupted' as failures (Playwright groups them under unexpected).
+  const FAILED_STATUSES = new Set(['failed', 'timedOut', 'interrupted']);
+  const pwCounts = { passed: 0, failed: 0, skipped: 0 };
+  for (const t of pwTests) {
+    if (FAILED_STATUSES.has(t.status)) pwCounts.failed++;
+    else if (t.status === 'passed') pwCounts.passed++;
+    else if (t.status === 'skipped') pwCounts.skipped++;
+  }
+  const pwFailures = pwTests.filter((t) => FAILED_STATUSES.has(t.status));
 
   // ── 4. summary.json ─────────────────────────────────────────────────
   const summary = {
