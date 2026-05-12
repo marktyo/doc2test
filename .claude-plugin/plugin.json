@@ -1,0 +1,21 @@
+{
+  "name": "doc2test",
+  "version": "0.1.0",
+  "description": "基于 PRD 的 AI 驱动 UI 自动化测试 Skill：读 PRD → 浏览器执行 → 提炼 Playwright → 统一 HTML 报告。",
+  "author": {
+    "name": "Hao Wu",
+    "email": "markh5@foxmail.com"
+  },
+  "homepage": "https://github.com/marktyo/doc2test",
+  "license": "MIT",
+  "keywords": [
+    "skill",
+    "claude-code",
+    "codex",
+    "prd",
+    "ui-test",
+    "playwright",
+    "chrome-devtools-mcp",
+    "regression"
+  ]
+}

@@ -1,0 +1,15 @@
+# Local-only Claude / Codex client state
+.claude/settings.local.json
+.codex/settings.local.json
+
+# macOS
+.DS_Store
+
+# Editor / OS junk
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Node (in case anyone runs Playwright locally inside this repo)
+node_modules/

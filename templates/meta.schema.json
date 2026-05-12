@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "doc2test case meta",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "type",
+    "module",
+    "priority",
+    "auth",
+    "playwright_strategy",
+    "status"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Z]+_\\d{3}(-\\d+)?$" },
+    "name": { "type": "string" },
+    "type": { "type": "string", "enum": ["功能", "边界", "异常"] },
+    "module": { "type": "string" },
+    "priority": { "type": "string", "enum": ["高", "中", "低"] },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "auth": {
+      "type": "string",
+      "description": "登录态模式。必须匹配 test/.skill-config.yaml 中 auth_modes 的某个 key，或保留字 'none'（匿名）/ 'fresh'（每例独立 incognito context）。"
+    },
+    "playwright_strategy": {
+      "type": "string",
+      "enum": ["extract", "defer", "ai-only"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "passed", "failed", "blocked", "skipped"]
+    },
+    "started_at": { "type": ["string", "null"], "format": "date-time" },
+    "finished_at": { "type": ["string", "null"], "format": "date-time" },
+    "duration_ms": { "type": ["integer", "null"] },
+    "skip_reason": { "type": ["string", "null"] },
+    "failure": {
+      "type": ["object", "null"],
+      "properties": {
+        "step": { "type": "integer" },
+        "expected": { "type": "string" },
+        "actual": { "type": "string" },
+        "screenshot": { "type": "string" }
+      }
+    },
+    "screenshots": { "type": "array", "items": { "type": "string" } },
+    "playwright_spec": { "type": ["string", "null"] },
+    "playwright_test_name": { "type": ["string", "null"] },
+    "notes": { "type": "string" }
+  }
+}

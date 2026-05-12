@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>测试报告 — {{PROJECT}} {{VERSION}}</title>
+<link rel="stylesheet" href="./assets/report.css" />
+</head>
+<body>
+<header class="page-header">
+  <div class="title">
+    <h1>{{PROJECT}}</h1>
+    <span class="version-tag">{{VERSION}}</span>
+  </div>
+  <div class="meta">
+    <span>生成于 <time>{{GENERATED_AT}}</time></span>
+    <span>·</span>
+    <span>对比基线 <strong>{{PREV_VERSION_OR_DASH}}</strong></span>
+  </div>
+</header>
+
+<section class="cards">
+  <div class="card pass">
+    <div class="card-label">通过</div>
+    <div class="card-value">{{AI_PASSED}} <span>/ {{AI_TOTAL}}</span></div>
+    <div class="card-sub">AI 执行</div>
+  </div>
+  <div class="card fail">
+    <div class="card-label">失败</div>
+    <div class="card-value">{{AI_FAILED}}</div>
+    <div class="card-sub">AI 执行</div>
+  </div>
+  <div class="card warn">
+    <div class="card-label">阻塞 / 跳过</div>
+    <div class="card-value">{{AI_BLOCKED}} / {{AI_SKIPPED}}</div>
+    <div class="card-sub">AI 执行</div>
+  </div>
+  <div class="card pass">
+    <div class="card-label">回归通过</div>
+    <div class="card-value">{{PW_PASSED}} <span>/ {{PW_TOTAL}}</span></div>
+    <div class="card-sub">Playwright</div>
+  </div>
+  <div class="card fail">
+    <div class="card-label">回归失败</div>
+    <div class="card-value">{{PW_FAILED}}</div>
+    <div class="card-sub">Playwright · {{PW_DURATION_S}}s</div>
+  </div>
+</section>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="ai">AI 执行详情</button>
+  <button class="tab" data-tab="pw">Playwright 回归</button>
+  <button class="tab" data-tab="cov">覆盖度自评</button>
+  <button class="tab" data-tab="diff" id="diff-tab">版本差异</button>
+</nav>
+
+<main>
+  <section class="panel active" id="panel-ai">
+    <iframe src="./ai-run.html" title="AI 执行详情"></iframe>
+  </section>
+
+  <section class="panel" id="panel-pw">
+    <iframe src="./playwright-html/index.html" title="Playwright 回归详情"></iframe>
+  </section>
+
+  <section class="panel" id="panel-cov">
+    <div class="coverage">
+      <h2>覆盖度自评</h2>
+      <table>
+        <thead><tr><th>维度</th><th>目标</th><th>实际</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td>等价类</td><td>100%</td><td>{{COV_EQ}}</td><td>{{COV_EQ_STATUS}}</td></tr>
+          <tr><td>边界值</td><td>≥ 90%</td><td>{{COV_BD}}</td><td>{{COV_BD_STATUS}}</td></tr>
+          <tr><td>异常场景</td><td>≥ 80%</td><td>{{COV_EX}}</td><td>{{COV_EX_STATUS}}</td></tr>
+          <tr><td>Pairwise</td><td>已应用</td><td>{{COV_PW}}</td><td>{{COV_PW_STATUS}}</td></tr>
+        </tbody>
+      </table>
+      <h3>风险与建议</h3>
+      <div id="risks">{{RISKS_HTML}}</div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-diff">
+    <div class="diff">
+      <h2>相对 {{PREV_VERSION_OR_DASH}} 的差异</h2>
+      <table>
+        <thead><tr><th>类型</th><th>数量</th></tr></thead>
+        <tbody>
+          <tr><td>不变</td><td>{{DIFF_UNCHANGED}}</td></tr>
+          <tr><td>修改</td><td>{{DIFF_MODIFIED}}</td></tr>
+          <tr><td>新增</td><td>{{DIFF_NEW}}</td></tr>
+          <tr><td>删除</td><td>{{DIFF_REMOVED}}</td></tr>
+        </tbody>
+      </table>
+      <p><a href="../prd-diff.md">查看完整 PRD diff</a></p>
+    </div>
+  </section>
+</main>
+
+<script src="./assets/report.js"></script>
+<script>
+  // 内联汇总数据，供 JS 访问
+  window.__SUMMARY__ = /* @SUMMARY_JSON@ */ null;
+</script>
+</body>
+</html>

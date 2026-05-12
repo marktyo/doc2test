@@ -1,0 +1,42 @@
+# doc2test skill 在本项目内的唯一配置入口。
+# 首次执行 skill 时由其引导生成；后续编辑后被自动读取。
+# 提交到 git 是允许的（不含敏感信息 —— 账号在 test/accounts.md，且不进 git）。
+#
+# 下方示例采用通用电商场景，部署到具体项目时请按实际业务替换。
+
+# PRD（产品需求文档）路径，相对项目根目录。
+# 默认 docs/产品技术文档.md。若不存在，skill 启动时会询问并回填这里。
+prd_path: docs/产品技术文档.md
+
+# 应用访问根 URL（阶段 2 的起点）。
+# 一般是本地 dev 服务，CI 模式下可由环境变量覆盖。
+app_url: http://localhost:3000
+
+# 登录态信息。一个 auth 模式对应用例 meta 中的 auth 字段。
+# key 即角色名，由项目自定义（不限制为某个固定集合）。
+# 仅描述「在哪里登录」，凭据本身在 test/accounts.md。
+# 保留字：
+#   - none  —— 匿名访问，不登录
+#   - fresh —— 每个用例独立 incognito context（用于登录/注册类用例）
+auth_modes:
+  customer:
+    login_url: /login
+  seller:
+    login_url: /seller/login
+  admin:
+    login_url: /admin/login
+
+# 用例 module 字段到 Playwright domain 目录的映射。
+# 例如 module=Order 的稳定用例将被提炼到 test/playwright/specs/order/。
+module_domain_mapping:
+  User: user
+  Product: product
+  Cart: cart
+  Order: order
+  Payment: payment
+
+# 可选项。未指定时使用 skill 内置默认值。
+options:
+  default_locale: zh                  # 主测语言；其它语言列在用例的 tags 中
+  ai_run_timeout_per_case_s: 180      # 单用例 LLM 执行超时（秒）
+  bring_to_front_on_tab_switch: true  # chrome-devtools-mcp 切 tab 必 bringToFront

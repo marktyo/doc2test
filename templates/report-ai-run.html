@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>AI 执行详情</title>
+<link rel="stylesheet" href="./assets/report.css" />
+</head>
+<body class="subpage">
+
+<header class="subpage-header">
+  <h2>AI 执行详情</h2>
+  <div class="filters">
+    <input type="search" id="q" placeholder="搜索用例 ID / 名称…" />
+    <select id="filter-module"><option value="">全部模块</option></select>
+    <select id="filter-type">
+      <option value="">全部类型</option>
+      <option>功能</option><option>边界</option><option>异常</option>
+    </select>
+    <select id="filter-status">
+      <option value="">全部状态</option>
+      <option>passed</option><option>failed</option><option>blocked</option><option>skipped</option>
+    </select>
+  </div>
+</header>
+
+<table class="case-table">
+  <thead>
+    <tr>
+      <th></th>
+      <th>用例 ID</th>
+      <th>名称</th>
+      <th>模块</th>
+      <th>类型</th>
+      <th>优先级</th>
+      <th>状态</th>
+      <th>用时</th>
+      <th>Playwright</th>
+    </tr>
+  </thead>
+  <tbody id="case-rows">
+    <!-- 行数据由脚本注入。下方是静态备用的模板行： -->
+    <!--
+    <tr class="case-row" data-case-id="{{ID}}" data-status="{{STATUS}}" data-module="{{MODULE}}" data-type="{{TYPE}}">
+      <td><button class="expand">▸</button></td>
+      <td><code>{{ID}}</code></td>
+      <td>{{NAME}}</td>
+      <td>{{MODULE}}</td>
+      <td>{{TYPE}}</td>
+      <td>{{PRIORITY}}</td>
+      <td><span class="badge {{STATUS}}">{{STATUS}}</span></td>
+      <td>{{DURATION}}</td>
+      <td>{{PW_LINK_OR_DASH}}</td>
+    </tr>
+    <tr class="case-detail" hidden>
+      <td colspan="9">
+        <div class="detail-grid">
+          <div class="steps">{{STEPS_MD_HTML}}</div>
+          <div class="screenshots">
+            <!-- 缩略图：<a href="../{{CASE_ID}}/screenshots/{{FILE}}"><img src="..."></a> -->
+          </div>
+        </div>
+        <details><summary>console.log</summary><pre>{{CONSOLE_LOG}}</pre></details>
+      </td>
+    </tr>
+    -->
+  </tbody>
+</table>
+
+<script src="./assets/report.js"></script>
+<script>
+  // 用例数据 —— 由报告生成器从 meta.json 文件注入
+  window.__AI_CASES__ = /* @AI_CASES_JSON@ */ [];
+  if (window.AI_REPORT) window.AI_REPORT.render();
+</script>
+</body>
+</html>
