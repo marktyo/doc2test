@@ -63,6 +63,76 @@ function stripAnsi(s) {
   return String(s || '').replace(/\[[0-9;]*m/g, '');
 }
 
+/**
+ * Cluster Playwright failures by root-cause pattern.
+ * Returns: [{ key, name, cause, fix, tests: [{title, file, error}] }, ...]
+ */
+function analyzePlaywrightFailures(failures) {
+  if (!failures.length) return [];
+  const patterns = [
+    {
+      key: 'strict-mode',
+      match: /strict mode violation/i,
+      name: '选择器作用域过广（strict-mode 多匹配）',
+      cause: '同一 selector 在 dialog 打开后同时匹配到 list filter 和 dialog 内的同名 input。Playwright 默认要求 selector 唯一命中。',
+      fix: '把 selector 限定在 dialog 内：page.locator(\'[role="dialog"]\').getByPlaceholder(...)；或追加 .first() / .nth(0)。',
+    },
+    {
+      key: 'visible',
+      match: /toBeVisible.*failed|locator.*toBeVisible/i,
+      name: '期望元素未出现',
+      cause: '断言的文本/元素在页面上找不到。常见根因：i18n 文案变了（locale 切换）、加载慢、或选择器写错。',
+      fix: '检查实际渲染语言；在 beforeEach 里强制 cookie patient_locale=zh；或 page.waitForLoadState("networkidle")。',
+    },
+    {
+      key: 'timeout',
+      match: /Test timeout.*exceeded|Timeout.*exceeded|page\.goto.*Timeout/i,
+      name: '测试超时（默认 30 秒）',
+      cause: 'globalSetup 登录卡住、或 spec 中某个 page.waitFor 始终未满足，触发整测超时。',
+      fix: '看 trace.zip 看停在哪一步。若是 globalSetup 慢，单独提高 timeout，或改 SQL seed 直接预置 session 跳过 UI 登录。',
+    },
+    {
+      key: 'assertion',
+      match: /toBeGreaterThanOrEqual|toBeLessThan|toEqual|toBe(?!Visible)|toHaveCount|toHaveText/i,
+      name: '数值 / 结构断言不匹配',
+      cause: '页面实际状态与期望不一致。常见根因：fixture 数据未达 spec 假设、前一步操作未完成、或 spec 假设错误。',
+      fix: '检查 fixture 数据；用 SQL seed 直接预置可控状态；或重读 spec 中的 expected 值。',
+    },
+    {
+      key: 'detached',
+      match: /not attached|detached|stale element/i,
+      name: 'DOM 元素已脱离 (stale)',
+      cause: '在 wait 期间元素被 React 重新挂载，原 ElementHandle 失效。',
+      fix: '不要事先把元素存到变量，每次用 page.locator() 重新查询。',
+    },
+    {
+      key: 'navigation',
+      match: /net::|ERR_CONNECTION|page\.goto.*failed/i,
+      name: '页面访问失败',
+      cause: 'dev server 没起、或 URL 不对、或网络中断。',
+      fix: '确认 baseURL 和 dev server 状态；CI 中用 playwright.config.ts 的 webServer 自动起。',
+    },
+  ];
+  const buckets = [];
+  for (const f of failures) {
+    let matched = null;
+    for (const p of patterns) {
+      if (p.match.test(f.error)) { matched = p; break; }
+    }
+    const key = matched?.key || 'other';
+    let b = buckets.find((x) => x.key === key);
+    if (!b) {
+      b = matched
+        ? { key, name: matched.name, cause: matched.cause, fix: matched.fix, tests: [] }
+        : { key: 'other', name: '其他（未匹配已知模式）', cause: '需要个案分析。', fix: '查看 trace.zip 与 error 信息单独处理。', tests: [] };
+      buckets.push(b);
+    }
+    b.tests.push({ title: f.title, file: f.file, error: f.error });
+  }
+  buckets.sort((a, b) => b.tests.length - a.tests.length);
+  return buckets;
+}
+
 function buildVersionReport({ version, project, prev, root }) {
   const versionDir = path.join(root, 'test', version);
   const reportDir = path.join(versionDir, 'report');
@@ -118,6 +188,7 @@ function buildVersionReport({ version, project, prev, root }) {
     else if (t.status === 'skipped') pwCounts.skipped++;
   }
   const pwFailures = pwTests.filter((t) => FAILED_STATUSES.has(t.status));
+  const pwAnalysis = analyzePlaywrightFailures(pwFailures);
 
   // ── 4. summary.json ─────────────────────────────────────────────────
   const summary = {
@@ -209,7 +280,8 @@ function buildVersionReport({ version, project, prev, root }) {
     .replace(/\{\{DIFF_NEW\}\}/g, '—')
     .replace(/\{\{DIFF_REMOVED\}\}/g, '—')
     .replace('/* @SUMMARY_JSON@ */ null', JSON.stringify(summary))
-    .replace('/* @PW_FAILURES_JSON@ */ []', JSON.stringify(pwFailures));
+    .replace('/* @PW_FAILURES_JSON@ */ []', JSON.stringify(pwFailures))
+    .replace('/* @PW_ANALYSIS_JSON@ */ []', JSON.stringify(pwAnalysis));
   fs.writeFileSync(path.join(reportDir, 'index.html'), idxHtml);
 
   // ── 7. Copy assets ──────────────────────────────────────────────────

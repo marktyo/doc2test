@@ -48,25 +48,28 @@
     });
   }
 
-  // ── Playwright failure summary ────────────────────────
+  // ── Playwright failure summary (AI-interpreted, root-cause clustered) ──
   function setupPlaywrightSummary() {
-    const target = document.getElementById('pw-summary');
+    const target = document.getElementById('pw-analysis');
     if (!target) return;
-    const failures = window.__PW_FAILURES__ || [];
-    if (!failures.length) {
+    const analysis = window.__PW_ANALYSIS__ || [];
+    if (!analysis.length) {
       target.innerHTML = '<p class="ok-line">全部通过 / 跳过，无失败。</p>';
       return;
     }
-    target.innerHTML = `
-      <h3>失败 ${failures.length} 个</h3>
-      <ul class="pw-fail-list">
-        ${failures.map((f) => `
-          <li>
-            <code>${esc(f.file || '')}</code>
-            <strong>${esc(f.title)}</strong>
-            <div class="err">${esc(f.error || '(no error message)')}</div>
-          </li>`).join('')}
-      </ul>`;
+    target.innerHTML = analysis.map((b) => `
+      <div class="pw-bucket">
+        <div class="pw-bucket-head">
+          <div class="pw-bucket-name">${esc(b.name)}</div>
+          <div class="pw-bucket-count">${b.tests.length} 个测试</div>
+        </div>
+        <p class="pw-bucket-cause"><strong>根因：</strong>${esc(b.cause)}</p>
+        <p class="pw-bucket-fix">${esc(b.fix)}</p>
+        <ul class="pw-bucket-tests">
+          ${b.tests.map((t) => `<li><b>${esc(t.title)}</b><br><code>${esc(t.file)}</code></li>`).join('')}
+        </ul>
+      </div>
+    `).join('');
   }
 
   // ── Coverage tab: module breakdown bar chart ─────────

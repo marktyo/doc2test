@@ -59,8 +59,15 @@
   </section>
 
   <section class="panel" id="panel-pw">
-    <div class="pw-overview" id="pw-summary"></div>
-    <iframe src="./playwright-html/index.html" title="Playwright 回归详情"></iframe>
+    <div class="pw-section">
+      <h2>回归分析</h2>
+      <p class="lede">把 Playwright 失败按根因聚类，给出修复建议。原始 Playwright HTML 报告在底部可折叠展开。</p>
+      <div id="pw-analysis"></div>
+    </div>
+    <details class="pw-raw">
+      <summary>原始 Playwright HTML 报告（点击展开）</summary>
+      <iframe src="./playwright-html/index.html" title="Playwright 原始报告"></iframe>
+    </details>
   </section>
 
   <section class="panel" id="panel-cov">
@@ -105,6 +112,7 @@
   /* Data must be defined BEFORE report.js to avoid race conditions. */
   window.__SUMMARY__ = /* @SUMMARY_JSON@ */ null;
   window.__PW_FAILURES__ = /* @PW_FAILURES_JSON@ */ [];
+  window.__PW_ANALYSIS__ = /* @PW_ANALYSIS_JSON@ */ [];
 </script>
 <script src="./assets/report.js"></script>
 </body>
