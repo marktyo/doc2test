@@ -169,27 +169,41 @@ INSERT INTO payment_transactions (type='Auth', status='failed', idempotency_key=
 
 例外（真 blocker）：真实第三方手动操作（如人工审批）/ 专用硬件（如读卡器）/ 时间依赖（如年末批处理）/ 不能在测试中触发的破坏性操作（如删全部用户）。
 
-### skip_reason 必须结构化
+### 标 blocked 前的自检清单（强制）
 
-标 blocked 时，`skip_reason` 字段必须包含以下 4 个部分（markdown 风格，便于报告渲染）：
+**这是一道防线，不是建议**。宣布 blocked 前必须逐条对照下面的问题，任一答案为「是」就**不要标 blocked**，回去把它跑通：
+
+- [ ] 解锁所需的能力是否在我手上？我有：admin 浏览器 + patient 浏览器（chrome-devtools-mcp）、SQL 写权限（test/accounts.md 中的 DSN）、SHA-256 / bcrypt 计算、curl、读源码、读环境变量。如果"解锁"只是这些工具的组合，就**没有理由把它标 blocked 让用户做**。
+- [ ] 解锁步骤里出现「用户/你 去 X、用户/你 做 Y」的措辞？把「用户」二字替换成「我」再读一遍——如果替换后整段我都能做到，就去做。**「用户做几步手工」 ≠ 用例阻塞，那是我懒。**
+- [ ] 这条用例的"解锁路径"是不是已经在 workflow 上面三个层级（MCP 真实流程 / 等异步通知 / SQL 注入）里有范例？有就照着做，不要假装它不适用。
+- [ ] 如果只是「需要 fresh 患者」「需要某状态的预约/受诊」「需要 token brute-force」「需要构造特定状态的支付链」——这些都是 Level-1 范例覆盖的场景，不要标 blocked。
+
+**只有以下情形才允许标 blocked**：
+
+| 真 blocker | 例子 |
+|---|---|
+| 源代码改动 | 收银台 RSA 验签是写死的，需要开发加 `process.env.CASHIER_SKIP_VERIFY` 跳过开关 |
+| 第三方私钥/账号 | 我没有 NSS 私钥，无法伪造签好名的 webhook |
+| 重启 dev server | 改 env var 后需要重启 next dev，dev server 是用户的进程 |
+| 真实手动操作 | 人工审批、读卡器、时间依赖批处理 |
+| 不可逆破坏性操作 | 删全部用户、清整库 |
+
+如果你正要标 blocked，但理由不属于上表任一类——回去做。
+
+### skip_reason 的格式（只给用户看的两段）
 
 ```
-**根因**：<一句话说清楚为什么这个用例没跑>
+**为什么卡住：** <一句话，告诉用户哪个外部条件不具备。直接讲外部约束，不写"我尝试过 X 失败"——那是执行日志，写到 STAGE2-HANDOFF.md。>
 
-**已尝试**：<阶段 2 试过哪些方案，为什么失败>
-
-**解锁步骤**：
-1. <具体到 SQL / curl / 文件改动 / 环境变量>
-2. <...>
-
-**难度**：low / medium / high
+**下一步：** <一段可执行的动作。
+  - 如果要找开发同学：指明改哪个文件哪一行/加哪个 env 开关。例：「在 src/lib/cashier/sign.ts 的 verifySignature 开头加 `if (process.env.CASHIER_SKIP_VERIFY === 'true') return true;`」
+  - 如果是用户一次性配置：写明命令或步骤。
+  - 不要说"高难度需要基础设施"——把具体动作落到地。>
 ```
 
-`low`：DB 注入 / 一条 curl / 复用现存数据可解。
-`medium`：需要多步串联或写少量 fixture 代码（< 50 行）。
-`high`：需要搭建 mock 服务、第三方账号、配置 CI 等基础设施。
+**不要**暴露 `已尝试`、`难度 low/medium/high`、`根因`（带全角冒号）等字段给用户。这些是 skill 历史版本残留的执行内部状态，属于 STAGE2-HANDOFF.md 而不属于报告。
 
-报告生成器会按 markdown 渲染这段文本，让人一眼就能知道**怎么解锁**。
+**格式细节**：粗体标签**包含全角冒号**（`**为什么卡住：** xxx`），不要写成 `**为什么卡住**：xxx` —— 后者在多数 markdown 渲染器下会因为 emphasis 闭合规则把冒号和正文换到下一行。
 
 ## 进度反馈
 
