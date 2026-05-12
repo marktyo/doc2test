@@ -146,12 +146,12 @@ flowchart TB
         BM --> B2[Stage 2 AI runs only 11<br/>≈ 22 min]
         BN --> B2
         B2 --> B3[Stage 3 Incremental extract<br/>edit / append / delete test blocks]
-        BU -. covered by Playwright .-> B4
+        BU -.->|covered by Playwright| B4
         B3 --> B4[Stage 4 AI + Playwright<br/>merged HTML report]
     end
 
-    A1 -. writes prd-snapshot.md .-> B1
-    A3 == Playwright suite grows across versions ==> B3
+    A1 -.->|writes prd-snapshot.md| B1
+    A3 ==>|Playwright suite grows across versions| B3
 
     classDef heavyAI fill:#fadbd8,stroke:#c0392b,color:#000
     classDef lightAI fill:#d5f5e3,stroke:#27ae60,color:#000

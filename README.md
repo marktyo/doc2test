@@ -146,12 +146,12 @@ flowchart TB
         BM --> B2[阶段2 AI 只跑 11 个<br/>≈ 22 min]
         BN --> B2
         B2 --> B3[阶段3 增量提炼<br/>就地改 / 追加 / 删除 test 块]
-        BU -. Playwright 并行回归 .-> B4
+        BU -.->|Playwright 并行回归| B4
         B3 --> B4[阶段4 AI + Playwright<br/>合并 HTML 报告]
     end
 
-    A1 -. 写入 prd-snapshot.md .-> B1
-    A3 == Playwright 套件跨版本持续生长 ==> B3
+    A1 -.->|写入 prd-snapshot.md| B1
+    A3 ==>|Playwright 套件跨版本持续生长| B3
 
     classDef heavyAI fill:#fadbd8,stroke:#c0392b,color:#000
     classDef lightAI fill:#d5f5e3,stroke:#27ae60,color:#000
