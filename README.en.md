@@ -121,6 +121,58 @@ test/
 
 ---
 
+## Version iteration flow
+
+The first version pays a one-time full cost; subsequent iterations only pay for what changed — the Playwright suite accumulates across versions and gets cheaper over time.
+
+```mermaid
+flowchart TB
+    subgraph v10["v1.0 initial · one-time full cost"]
+        direction TB
+        A1[Stage 1 Design<br/>47 cases · all pending]
+        A2[Stage 2 AI serial run<br/>47/47 ≈ 90 min]
+        A3[Stage 3 Extract Playwright<br/>30 extract+passed]
+        A4[Stage 4 Report + Regression]
+        A1 --> A2 --> A3 --> A4
+    end
+
+    subgraph v11["v1.1 iteration · pay only for changes"]
+        direction TB
+        B1[Stage 1 PRD diff & classify]
+        B1 --> BU["unchanged 38<br/>status = skipped"]
+        B1 --> BM["modified 3<br/>status = pending"]
+        B1 --> BN["new 8<br/>status = pending"]
+        B1 --> BR["removed 0<br/>dropped from test-cases.md"]
+        BM --> B2[Stage 2 AI runs only 11<br/>≈ 22 min]
+        BN --> B2
+        B2 --> B3[Stage 3 Incremental extract<br/>edit / append / delete test blocks]
+        BU -. covered by Playwright .-> B4
+        B3 --> B4[Stage 4 AI + Playwright<br/>merged HTML report]
+    end
+
+    A1 -. writes prd-snapshot.md .-> B1
+    A3 == Playwright suite grows across versions ==> B3
+
+    classDef heavyAI fill:#fadbd8,stroke:#c0392b,color:#000
+    classDef lightAI fill:#d5f5e3,stroke:#27ae60,color:#000
+    classDef skipped fill:#d6eaf8,stroke:#2874a6,color:#000
+    classDef pw fill:#fdebd0,stroke:#d68910,color:#000
+
+    class A2 heavyAI
+    class B2 lightAI
+    class BU skipped
+    class A3,B3 pw
+```
+
+**Reading the diagram:**
+
+- **Red** = AI serial full run (expensive); **green** = AI serial incremental run (cheap); **blue** = fully skipped, covered by Playwright; **orange** = Playwright suite accumulation point.
+- **Dashed** `prd-snapshot.md` is the diff anchor between versions — v1.0 writes the snapshot, v1.1 classifies cases against it.
+- **Bold arrow** is the core insight — the Playwright suite only grows in Stage 3, never sliced per version, and runs fully on every regression.
+- v1.1's `unchanged` cases **consume zero AI time** but are still covered by Playwright's parallel regression in Stage 4 — that's where the iteration savings come from.
+
+---
+
 ## Project structure
 
 ```text
