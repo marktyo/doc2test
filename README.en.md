@@ -67,16 +67,6 @@ A single `git pull` upgrades both clients.
 
 ---
 
-## Dependencies
-
-| Dependency | Used in | Notes |
-|---|---|---|
-| [`chrome-devtools-mcp`](https://github.com/anthropics/chrome-devtools-mcp) | Stage 2 (Execute) | Required. Must be registered as an MCP server in your client. |
-| Node + npm/pnpm | Stages 3, 4 (Extract / Regress) | For running Playwright. |
-| Playwright | Stage 4 (Regress) | The Skill will guide you through initialization on demand. |
-
----
-
 ## Quick start
 
 1. Go to your Web project root.
@@ -121,7 +111,9 @@ test/
 
 ---
 
-## Version iteration flow
+## FAQ
+
+### Q1: What does the version iteration flow look like?
 
 The first version pays a one-time full cost; subsequent iterations only pay for what changed — the Playwright suite accumulates across versions and gets cheaper over time.
 
@@ -171,46 +163,7 @@ flowchart TB
 - **Bold arrow** is the core insight — the Playwright suite only grows in Stage 3, never sliced per version, and runs fully on every regression.
 - v1.1's `unchanged` cases **consume zero AI time** but are still covered by Playwright's parallel regression in Stage 4 — that's where the iteration savings come from.
 
----
-
-## Project structure
-
-```text
-doc2test/
-├── SKILL.md                    ← Skill entry point (loaded by both Claude Code & Codex)
-├── role.md                     ← Case design spec (company-wide standard)
-├── workflows/                  ← Detailed steps for each of the four stages
-│   ├── 1-design.md
-│   ├── 2-execute.md
-│   ├── 3-extract.md
-│   └── 4-regress.md
-├── conventions/                ← Directory and naming conventions
-│   └── artifacts-layout.md
-├── templates/                  ← Skeletons for config / cases / report
-│   ├── .skill-config.yaml
-│   ├── test-outline.md
-│   ├── test-cases.md
-│   ├── playwright.config.ts
-│   ├── playwright.spec.ts
-│   ├── auth.fixture.ts
-│   ├── report-index.html
-│   ├── report-ai-run.html
-│   ├── report-assets/
-│   └── meta.schema.json
-├── examples/                   ← End-to-end walkthroughs from real projects
-│   └── healthcare.md
-├── .claude-plugin/
-│   └── plugin.json             ← Claude Code plugin metadata
-├── CHANGELOG.md
-├── LICENSE
-└── README.md
-```
-
----
-
-## FAQ
-
-### Q1: Is Stage 2 (Execute) serial? Can cases run in parallel?
+### Q2: Is Stage 2 (Execute) serial? Can cases run in parallel?
 
 **Currently serial** — one case at a time. Three root constraints:
 
@@ -220,13 +173,13 @@ doc2test/
 
 True parallelism happens in **Stage 4** — Playwright runs workers natively. That's why the Skill splits AI execution (slow, serial) from Playwright regression (fast, parallel): the first version pays a one-time serial cost; on subsequent versions, `unchanged` cases are skipped and the bulk is covered by Playwright in parallel.
 
-### Q2: Does the first version run AI on every case?
+### Q3: Does the first version run AI on every case?
 
 **Yes — 100% coverage.** The first version has no prior snapshot to diff against; Stage 1 marks every case as `meta.status: "pending"` and Stage 2 executes them one by one.
 
 The "full vs incremental" distinction only kicks in for iteration versions: Stage 1 classifies prior cases as `unchanged | modified | new | removed`, Stage 2 only runs `modified | new`, and `unchanged` cases are handed off to Stage 4's Playwright suite.
 
-### Q3: What makes a case eligible to become a Playwright script?
+### Q4: What makes a case eligible to become a Playwright script?
 
 Three gates, all must pass:
 
@@ -239,7 +192,7 @@ Three gates, all must pass:
 
 Fail any gate → AI keeps running it next version.
 
-### Q4: A concrete example of how cases get routed
+### Q5: A concrete example of how cases get routed
 
 E-commerce, three login cases:
 
@@ -251,7 +204,7 @@ E-commerce, three login cases:
 
 Next version: the first case is regressed by Playwright in parallel; AI never runs it again. The other two — if PRD didn't change → `unchanged` (skipped); if it did → AI re-runs.
 
-### Q5: Can I see `playwright_strategy` in the case list (test-cases.md)?
+### Q6: Can I see `playwright_strategy` in the case list (test-cases.md)?
 
 **No.** It lives only in each case's `meta.json`, by design — to keep the human-readable case table uncluttered (per [role.md](./role.md) section 8).
 

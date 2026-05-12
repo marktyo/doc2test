@@ -67,16 +67,6 @@ ln -s ~/skills/doc2test ~/.codex/skills/doc2test
 
 ---
 
-## 依赖
-
-| 依赖 | 用于哪个阶段 | 备注 |
-|---|---|---|
-| [`chrome-devtools-mcp`](https://github.com/anthropics/chrome-devtools-mcp) | 阶段 2（执行） | 必装。需在所用客户端中注册为 MCP server |
-| Node + npm/pnpm | 阶段 3、4（提炼 / 回归） | 用于运行 Playwright |
-| Playwright | 阶段 4（回归） | Skill 会按需引导初始化 |
-
----
-
 ## 快速开始
 
 1. 进入你的 Web 项目根目录。
@@ -121,7 +111,9 @@ test/
 
 ---
 
-## 版本迭代流程
+## FAQ
+
+### Q1：版本迭代的整体流程是怎样的？
 
 首版本一次性付全量成本，后续迭代只为"变化的部分"付费 —— Playwright 套件跨版本沉淀，越用越快。
 
@@ -171,46 +163,7 @@ flowchart TB
 - **粗箭头**是这套设计的核心 —— Playwright 套件只在阶段 3 增长，不按版本切分，每次回归都全量跑。
 - v1.1 的 `unchanged` 用例**完全不消耗 AI 时间**，但在阶段 4 仍由 Playwright 并行回归覆盖 —— 这就是迭代版本省时间的来源。
 
----
-
-## 项目结构
-
-```text
-doc2test/
-├── SKILL.md                    ← Skill 入口（Claude Code & Codex 都从此处读）
-├── role.md                     ← 用例设计规范（公司层面统一标准）
-├── workflows/                  ← 四个阶段各自的详细操作步骤
-│   ├── 1-design.md
-│   ├── 2-execute.md
-│   ├── 3-extract.md
-│   └── 4-regress.md
-├── conventions/                ← 目录与命名规范
-│   └── artifacts-layout.md
-├── templates/                  ← 配置 / 用例 / 报告骨架
-│   ├── .skill-config.yaml
-│   ├── test-outline.md
-│   ├── test-cases.md
-│   ├── playwright.config.ts
-│   ├── playwright.spec.ts
-│   ├── auth.fixture.ts
-│   ├── report-index.html
-│   ├── report-ai-run.html
-│   ├── report-assets/
-│   └── meta.schema.json
-├── examples/                   ← 真实项目端到端配置走例
-│   └── healthcare.md
-├── .claude-plugin/
-│   └── plugin.json             ← Claude Code plugin 元信息
-├── CHANGELOG.md
-├── LICENSE
-└── README.md
-```
-
----
-
-## FAQ
-
-### Q1：阶段 2（执行）是串行的吗？能并行跑用例吗？
+### Q2：阶段 2（执行）是串行的吗？能并行跑用例吗？
 
 **当前是串行**，一次跑一个用例。三个根本约束：
 
@@ -220,13 +173,13 @@ doc2test/
 
 真正的并行发生在**阶段 4** —— Playwright 用 worker 原生并行回归。这就是 Skill 把 AI 执行（慢、串行）和 Playwright 回归（快、并行）拆成两个阶段的核心理由：首版承担一次性串行成本，迭代版本里 `unchanged` 用例直接跳过，绝大多数交给 Playwright 并行覆盖。
 
-### Q2：首版本会用 AI 跑全部用例吗？
+### Q3：首版本会用 AI 跑全部用例吗？
 
 **是的，100% 全量。** 首版没有上一版快照可 diff，阶段 1 给所有用例打 `meta.status: "pending"`，阶段 2 逐个执行。
 
 「全量 vs 增量」的概念只在迭代版本才有：阶段 1 把上一版用例分类为 `unchanged | modified | new | removed`，阶段 2 只跑 `modified | new`，`unchanged` 由阶段 4 的 Playwright 接管。
 
-### Q3：什么样的用例会被自动提炼成 Playwright 脚本？
+### Q4：什么样的用例会被自动提炼成 Playwright 脚本？
 
 要同时通过**三道关卡**：
 
@@ -239,7 +192,7 @@ doc2test/
 
 任一关卡未过 → 下次版本仍由 AI 跑。
 
-### Q4：举个例子，看用例如何被分流
+### Q5：举个例子，看用例如何被分流
 
 电商场景，3 个登录用例：
 
@@ -251,7 +204,7 @@ doc2test/
 
 下一版本：第一个用例由 Playwright 并行回归，AI 不再跑；后两个 PRD 没改 → `unchanged` 跳过，PRD 改了 → AI 重跑。
 
-### Q5：测试用例列表（test-cases.md）里能看到 `playwright_strategy` 吗？
+### Q6：测试用例列表（test-cases.md）里能看到 `playwright_strategy` 吗？
 
 **看不到。** 它只存在于每个用例的 `meta.json`，避免污染人类可读的用例表（[role.md](./role.md) 第 8 节的约定）。
 
