@@ -105,45 +105,69 @@
 ## Block discipline（重要）
 
 `blocked` 是「**测试无法执行**」的状态，不是「**我懒得搭前置条件**」的状态。
-在标 blocked 之前，**必须依次尝试以下三类方案**：
+在标 blocked 之前，**必须按以下分层判断**用例属于哪一类，对症下药。
 
-### 第 1 类：直接 DB 注入
+### 分类原则：先看「需不需要第三方失败响应」
 
-绝大多数「需要某种特定状态」的用例都可以用 SQL 直接构造，**不需要走完整 UI 流程**。
+| 用例特征 | 选哪种解法 |
+|---|---|
+| 链路全在我方系统内（UI + server actions + DB），或外部调用预期是 SUCCESS | **层级 1: MCP 真实 UI 流程** |
+| 链路含一次外部 API 调用，且**沙箱默认返回 SUCCESS** 就能推进 | **层级 1+2: MCP 真实流程 + 等异步通知** |
+| 链路需要外部第三方返回 **FAILURE / 5xx / timeout / 特定异常**（沙箱无法被诱导返回这些） | **层级 3: SQL 注入终态** |
+
+### 层级 1：MCP 真实 UI 流程（**默认**）
+
+绝大多数「需要某种特定状态」的用例应当**通过浏览器自动化按真实用户流程造数据**，不要用 SQL 注入跳过业务逻辑。
+真实流程能同时覆盖：表单校验 / server action / 状态机 / 操作日志 / UI 反馈，是端到端测试的本意。
+
 例如：
 
-| 用例需要 | DB 注入解法 |
+| 用例需要 | 真实流程造法 |
 |---|---|
-| 需要 pending patient | `INSERT INTO patients (...) VALUES (...)` 或 `UPDATE` 一个现存 approved patient 临时改回 |
-| 需要 estimate_failed consultation | `UPDATE consultations SET status='estimate_failed'`，**同时** `INSERT` 一条 `payment_transactions` (type=Auth, status=failed) 保持数据一致 |
-| 需要 rejected patient with known password | `UPDATE patients SET password_hash=$2b$10$..., approval_status='rejected'` |
-| 需要 treatment_pending consultation | `UPDATE consultations SET status='treatment_pending'` + `INSERT` Auth success transaction |
-| 需要 payment_success consultation | 同上，再加 Capture success |
+| 需要 pending patient | 用 fresh incognito 注册一个新患者（PAT_001 那一套 SHA-256 brute-force 验证码） |
+| 需要 rejected patient with known password | admin reject 一个 pending 患者 → admin 触发「重置密码」邮件 → 从 DB email_verifications 取 token brute-force → patient 设新密码 → 用 markh5 登录验证拦截 |
+| 需要 confirmed appointment | admin 创建预约 → patient 同意 |
+| 需要 reschedule_pending appointment | 同上，patient 「不同意」并填理由 |
+| 需要 forgot-password reset token | `/patient/forgot-password` 提交 → DB 取 hash → brute-force 6 位 |
 
-测试账号文件 `test/accounts.md` 已有数据库连接串。
+测试账号 + DB 连接串都在 `test/accounts.md`。
 
-### 第 2 类：现存数据复用
+### 层级 2：MCP 真实流程 + 等异步通知
 
-跑用例之前先扫一眼 DB，看现存数据里**有没有正好处于目标状态的**记录。
+链路里嵌了一次外部 API 调用（如 NSS Auth / Capture），但**沙箱默认返回 SUCCESS** 时：
+仍然走 MCP 真实操作，**等沙箱异步通知到达**（通常几秒到几十秒）。沙箱可达就不要 mock。
+
 例如：
 
-| 用例需要 | 复用现存数据 |
+| 用例需要 | 流程 |
 |---|---|
-| AddOn 退款（PAY_006）| 找现存 `additional_charge_success` 状态的 consultation |
-| Manual Query（PAY_007）| 找现存 `payment_transactions.status='pending'` 的 Auth |
-| 全额退款（PAY_010）| 找现存 Capture success 交易 |
+| 需要 treatment_pending（Auth 成功后） | MCP: patient consent 概算 → 触发 Auth → 等异步通知到 → status 推进到 treatment_pending |
+| 需要 payment_success（Capture 成功后） | MCP: admin 录入诊疗费 → 触发 Capture → 等通知 → status=payment_success |
+| 需要 additional_charge_success | 同上 + admin 点「追加請求」→ 触发 AddOn → 等通知 |
 
-### 第 3 类：通过其它用例串联
+**注意**：这类用例耗时较长（异步通知会让单用例时长从 30 秒涨到 2-3 分钟），但**质量远高于 SQL 注入**——能验证整个真实链路。
 
-如果目标状态只能通过先跑别的用例达到（且别的用例可以跑），就**编排顺序**串起来。
-例如：先跑 `PAT_001` 注册一个 pending patient → 然后 `APR_001` 才能 approve 它。
+### 层级 3：SQL 注入终态（**只在沙箱无法配合时**）
+
+仅以下场景允许 SQL 注入：
+
+- **第三方默认成功，无法诱导失败**：Auth fail / Capture fail / 绑卡 fail / getCardInfo 5xx / Refund fail / AddOn fail / Manual Query 返回非 SUCCESS
+- **特殊时序场景**：通知延迟 / 通知乱序 / 重复通知（虽然重复通知可通过 cashier-mcp 重放，更精细）
+
+SQL 注入的局限：**跳过了 server action 的状态机校验和副作用写入**。覆盖的只是「我方对该终态的展示和后续处理」，而**不是终态如何被生成的链路**。
+
+注入时必须**同时维护多个相关表**保持一致性。例如「注入 estimate_failed 状态」要：
+```sql
+UPDATE consultations SET status='estimate_failed', failure_reason='Test injected' WHERE id=X;
+INSERT INTO payment_transactions (type='Auth', status='failed', idempotency_key='..._A_1', ...);
+```
+不能只 UPDATE consultations 不写 payment_transactions，那样后续 retry-Auth 时 idempotency 计数会错。
 
 ---
 
-只有以上三类**都尝试过且确认不可行**的，才能标 blocked。
+只有以上三层**都不适用**的，才允许 blocked。在 cashier-hospital 这种本系统 + 沙箱可达的项目里，blocked 应该是**接近 0** 的状态。
 
-例外情况：**真正需要 mock 第三方** 的，可以直接 blocked，但要在 skip_reason 明确写「需要 mock X 服务返回 Y 响应」。
-例如：mock cashier 返回 FAILURE 通知、mock SMTP 拦截邮件、mock S3 返回 5xx 等。
+例外（真 blocker）：真实第三方手动操作（如人工审批）/ 专用硬件（如读卡器）/ 时间依赖（如年末批处理）/ 不能在测试中触发的破坏性操作（如删全部用户）。
 
 ### skip_reason 必须结构化
 
