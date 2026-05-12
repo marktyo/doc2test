@@ -13,7 +13,31 @@
     setupHeroCards();
     setupPlaywrightSummary();
     setupCoverage();
+    setupFixPrompt();
     if (window.AI_REPORT) window.AI_REPORT.render();
+  }
+
+  // ── Fix-prompt tab: render markdown body + copy-to-clipboard ────────
+  function setupFixPrompt() {
+    const body = document.getElementById('fix-prompt-body');
+    if (!body) return;
+    const prompt = window.__FIX_PROMPT__ || '';
+    body.textContent = prompt || '(无需修复 — 所有用例通过)';
+    const btn = document.getElementById('copy-fix-prompt');
+    btn?.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(prompt);
+        const original = btn.textContent;
+        btn.textContent = '✓ 已复制';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = original;
+          btn.classList.remove('copied');
+        }, 1800);
+      } catch {
+        btn.textContent = '复制失败（请手选）';
+      }
+    });
   }
 
   // ── Tabs (index.html) ─────────────────────────────────

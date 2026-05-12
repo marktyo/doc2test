@@ -133,6 +133,119 @@ function analyzePlaywrightFailures(failures) {
   return buckets;
 }
 
+/**
+ * Build a self-contained markdown prompt for an LLM to act on:
+ * what AI cases failed/are blocked, what Playwright tests failed, and
+ * a "please help" instruction block.
+ *
+ * Output is a single string. Truncates steps/error blobs so the prompt
+ * stays roughly under 10KB even with many cases.
+ */
+function buildFixPrompt(summary, cases, pwBuckets) {
+  const out = [];
+  const ai = summary.ai_run;
+  const pw = summary.playwright_run;
+  const aiFailed = cases.filter((c) => c.status === 'failed');
+  const aiBlocked = cases.filter((c) => c.status === 'blocked');
+
+  const truncate = (s, n) => {
+    s = String(s || '').trim();
+    return s.length > n ? s.slice(0, n) + '…' : s;
+  };
+
+  out.push(`# 测试修复任务 — ${summary.project} ${summary.version}`);
+  out.push('');
+  out.push('我跑了一轮自动化测试，把需要你帮忙修复 / 解锁的部分汇总如下。请逐项给出具体的代码 / 配置 / fixture 修改建议。');
+  out.push('');
+  out.push('## 总体情况');
+  out.push('');
+  out.push(`- AI 用例：${ai.passed}/${ai.total} 通过，${ai.failed} 失败，${ai.blocked} 阻塞`);
+  if (pw) out.push(`- Playwright 回归：${pw.passed}/${pw.total} 通过，${pw.failed} 失败`);
+  out.push('');
+
+  if (aiFailed.length) {
+    out.push('---');
+    out.push('');
+    out.push(`## 🔴 AI 失败用例（${aiFailed.length} 个）`);
+    out.push('');
+    for (const c of aiFailed) {
+      out.push(`### ${c.id} — ${c.name}`);
+      out.push(`- 模块：${c.module} · 类型：${c.type} · 优先级：${c.priority}`);
+      if (c.failure) {
+        out.push(`- 失败：第 ${c.failure.step} 步 — 预期 \`${c.failure.expected}\`，实际 \`${c.failure.actual}\``);
+      }
+      if (c.notes) out.push(`- 备注：${truncate(c.notes, 300)}`);
+      if (c.steps_md) {
+        out.push('- 执行步骤（节选）：');
+        out.push('  ```');
+        out.push('  ' + truncate(c.steps_md, 600).split('\n').join('\n  '));
+        out.push('  ```');
+      }
+      out.push('');
+    }
+  }
+
+  if (aiBlocked.length) {
+    out.push('---');
+    out.push('');
+    out.push(`## 🟡 AI 阻塞用例（${aiBlocked.length} 个，需要解锁前置条件）`);
+    out.push('');
+    // group by module
+    const byMod = {};
+    for (const c of aiBlocked) (byMod[c.module] ||= []).push(c);
+    for (const [mod, list] of Object.entries(byMod).sort()) {
+      out.push(`### ${mod}（${list.length} 个）`);
+      out.push('');
+      for (const c of list) {
+        out.push(`- **${c.id}** (${c.name})`);
+        out.push(`  - 阻塞原因：${truncate(c.skip_reason || '(未填)', 350)}`);
+      }
+      out.push('');
+    }
+  }
+
+  if (pwBuckets && pwBuckets.length) {
+    out.push('---');
+    out.push('');
+    out.push(`## 🔴 Playwright 失败 — 按根因聚类（${pwBuckets.length} 类）`);
+    out.push('');
+    for (const b of pwBuckets) {
+      out.push(`### ${b.name}（${b.tests.length} 个测试）`);
+      out.push('');
+      out.push(`**根因**：${b.cause}`);
+      out.push('');
+      out.push(`**初步修复方向**：${b.fix}`);
+      out.push('');
+      out.push('**受影响测试**：');
+      for (const t of b.tests) {
+        out.push(`- \`${t.file}\` — ${t.title}`);
+        if (t.error) out.push(`  错误首行：\`${truncate(t.error, 180)}\``);
+      }
+      out.push('');
+    }
+  }
+
+  out.push('---');
+  out.push('');
+  out.push('## 请你帮我做：');
+  out.push('');
+  let n = 0;
+  if (aiFailed.length) {
+    out.push(`${++n}. **AI 失败用例**：对每个失败，定位根因 → 判断是代码 bug 还是用例描述错 → 给出具体修复（代码 diff 或用例改写）。`);
+  }
+  if (aiBlocked.length) {
+    out.push(`${++n}. **AI 阻塞用例**：对每个阻塞原因，给出具体的解锁步骤（SQL seed / mock 服务 / 环境变量 / 第三方账号配置）。`);
+  }
+  if (pwBuckets && pwBuckets.length) {
+    out.push(`${++n}. **Playwright 失败**：对每个 bucket，给出具体的 selector / 等待 / fixture 修改建议（最好直接给出 diff）。`);
+  }
+  out.push(`${++n}. 如果发现共性问题（多个测试同一根因），提出系统性的改进建议（比如统一加 page object、加 SQL seed fixture、mock 服务等）。`);
+  out.push('');
+  out.push('谢谢！');
+
+  return out.join('\n');
+}
+
 function buildVersionReport({ version, project, prev, root }) {
   const versionDir = path.join(root, 'test', version);
   const reportDir = path.join(versionDir, 'report');
@@ -225,6 +338,9 @@ function buildVersionReport({ version, project, prev, root }) {
   };
   fs.writeFileSync(path.join(reportDir, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
 
+  // ── 4b. Build "fix prompt" for LLM consumption ─────────────────────
+  const fixPrompt = buildFixPrompt(summary, cases, pwAnalysis);
+
   // ── 5. Render ai-run.html ───────────────────────────────────────────
   const aiTpl = fs.readFileSync(path.join(TEMPLATES_DIR, 'report-ai-run.html'), 'utf-8');
   const aiCases = cases.map((c) => ({
@@ -281,7 +397,8 @@ function buildVersionReport({ version, project, prev, root }) {
     .replace(/\{\{DIFF_REMOVED\}\}/g, '—')
     .replace('/* @SUMMARY_JSON@ */ null', JSON.stringify(summary))
     .replace('/* @PW_FAILURES_JSON@ */ []', JSON.stringify(pwFailures))
-    .replace('/* @PW_ANALYSIS_JSON@ */ []', JSON.stringify(pwAnalysis));
+    .replace('/* @PW_ANALYSIS_JSON@ */ []', JSON.stringify(pwAnalysis))
+    .replace('/* @FIX_PROMPT_STR@ */ ""', JSON.stringify(fixPrompt));
   fs.writeFileSync(path.join(reportDir, 'index.html'), idxHtml);
 
   // ── 7. Copy assets ──────────────────────────────────────────────────

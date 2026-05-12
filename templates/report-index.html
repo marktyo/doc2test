@@ -49,6 +49,7 @@
 <nav class="tabs" role="tablist">
   <button class="tab active" data-tab="ai">AI 执行详情</button>
   <button class="tab" data-tab="pw">Playwright 回归</button>
+  <button class="tab" data-tab="fix">修复 Prompt</button>
   <button class="tab" data-tab="cov">覆盖度自评</button>
   <button class="tab" data-tab="diff" id="diff-tab">版本差异</button>
 </nav>
@@ -68,6 +69,19 @@
       <summary>原始 Playwright HTML 报告（点击展开）</summary>
       <iframe src="./playwright-html/index.html" title="Playwright 原始报告"></iframe>
     </details>
+  </section>
+
+  <section class="panel" id="panel-fix">
+    <div class="fix-section">
+      <div class="fix-toolbar">
+        <div>
+          <h2>修复 Prompt</h2>
+          <p class="lede">把下面这段 markdown 复制给 Claude / ChatGPT / Cursor，让 LLM 帮你分析失败和阻塞，给出具体修复建议。</p>
+        </div>
+        <button class="copy-btn" id="copy-fix-prompt" type="button">复制到剪贴板</button>
+      </div>
+      <pre id="fix-prompt-body"></pre>
+    </div>
   </section>
 
   <section class="panel" id="panel-cov">
@@ -113,6 +127,7 @@
   window.__SUMMARY__ = /* @SUMMARY_JSON@ */ null;
   window.__PW_FAILURES__ = /* @PW_FAILURES_JSON@ */ [];
   window.__PW_ANALYSIS__ = /* @PW_ANALYSIS_JSON@ */ [];
+  window.__FIX_PROMPT__ = /* @FIX_PROMPT_STR@ */ "";
 </script>
 <script src="./assets/report.js"></script>
 </body>
