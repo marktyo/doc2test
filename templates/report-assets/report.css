@@ -651,6 +651,65 @@ body.subpage {
 .case-detail .reason-box.info    { border-left-color: var(--info); background: var(--info-bg); }
 .case-detail .reason-box.info strong { color: var(--info); }
 
+/* Reason-box markdown body */
+.case-detail .reason-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.case-detail .md {
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-line;
+  color: var(--text);
+}
+.case-detail .md strong { color: var(--text); font-weight: 600; }
+.case-detail .md code {
+  font-family: var(--mono);
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--violet);
+}
+.case-detail .md pre.md-code {
+  font-family: var(--mono);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin: 8px 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  overflow-x: auto;
+  white-space: pre;
+}
+.case-detail .md .md-ref {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--info);
+  background: var(--info-bg);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.diff-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+.diff-badge.low { background: var(--pass-bg); color: var(--pass); border-color: rgba(16, 185, 129, 0.30); }
+.diff-badge.medium { background: var(--warn-bg); color: var(--warn); border-color: rgba(245, 158, 11, 0.30); }
+.diff-badge.high { background: var(--fail-bg); color: var(--fail); border-color: rgba(239, 68, 68, 0.25); }
+
 .case-detail .steps pre {
   font-family: var(--mono);
   background: var(--surface);

@@ -217,7 +217,13 @@
     const sections = [];
     if (c.skip_reason) {
       const label = c.status === 'blocked' ? '阻塞原因' : '跳过原因';
-      sections.push(`<div class="reason-box ${c.status}"><strong>${label}</strong><p>${esc(c.skip_reason)}</p></div>`);
+      const diffBadge = c.unlock_difficulty
+        ? `<span class="diff-badge ${c.unlock_difficulty}">解锁难度 · ${c.unlock_difficulty}</span>`
+        : '';
+      sections.push(`<div class="reason-box ${c.status}">
+        <div class="reason-head"><strong>${label}</strong>${diffBadge}</div>
+        <div class="md">${renderMarkdown(c.skip_reason)}</div>
+      </div>`);
     } else if (c.failure) {
       sections.push(`<div class="reason-box failed"><strong>失败</strong><p>第 ${c.failure.step} 步 — 预期：${esc(c.failure.expected)}；实际：${esc(c.failure.actual)}</p></div>`);
     } else if (c.notes) {
@@ -270,5 +276,34 @@
   }
   function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  /**
+   * Minimal markdown subset for skip_reason rendering:
+   * - ```lang\n code \n``` → <pre><code>
+   * - `inline` → <code>
+   * - **bold** → <strong>
+   * - 1. / - lists kept as plain text (preserved via white-space: pre-line)
+   * - paragraphs separated by blank lines
+   */
+  function renderMarkdown(src) {
+    if (!src) return '';
+    let text = String(src);
+    const blocks = [];
+    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+      blocks.push(`<pre class="md-code"><code>${esc(code.replace(/\n+$/, ''))}</code></pre>`);
+      return ` B${blocks.length - 1} `;
+    });
+    // escape remaining
+    text = esc(text);
+    // restore inline code (`x`) — but esc has already escaped backticks-as-text fine
+    text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+    // bold **x**
+    text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    // wikilinks-style [[x]] → spans
+    text = text.replace(/\[\[([^\]]+)\]\]/g, '<span class="md-ref">$1</span>');
+    // restore code blocks
+    text = text.replace(/ B(\d+) /g, (_, n) => blocks[+n]);
+    return text;
   }
 })();

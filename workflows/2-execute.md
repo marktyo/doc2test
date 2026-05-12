@@ -102,6 +102,71 @@
 - 浏览器进入异常状态（未捕获错误、卡住的弹窗）→ 关闭当前页面、开新页面。
 - 刚跑完一个 `fresh` 用例 → 销毁其 context。
 
+## Block discipline（重要）
+
+`blocked` 是「**测试无法执行**」的状态，不是「**我懒得搭前置条件**」的状态。
+在标 blocked 之前，**必须依次尝试以下三类方案**：
+
+### 第 1 类：直接 DB 注入
+
+绝大多数「需要某种特定状态」的用例都可以用 SQL 直接构造，**不需要走完整 UI 流程**。
+例如：
+
+| 用例需要 | DB 注入解法 |
+|---|---|
+| 需要 pending patient | `INSERT INTO patients (...) VALUES (...)` 或 `UPDATE` 一个现存 approved patient 临时改回 |
+| 需要 estimate_failed consultation | `UPDATE consultations SET status='estimate_failed'`，**同时** `INSERT` 一条 `payment_transactions` (type=Auth, status=failed) 保持数据一致 |
+| 需要 rejected patient with known password | `UPDATE patients SET password_hash=$2b$10$..., approval_status='rejected'` |
+| 需要 treatment_pending consultation | `UPDATE consultations SET status='treatment_pending'` + `INSERT` Auth success transaction |
+| 需要 payment_success consultation | 同上，再加 Capture success |
+
+测试账号文件 `test/accounts.md` 已有数据库连接串。
+
+### 第 2 类：现存数据复用
+
+跑用例之前先扫一眼 DB，看现存数据里**有没有正好处于目标状态的**记录。
+例如：
+
+| 用例需要 | 复用现存数据 |
+|---|---|
+| AddOn 退款（PAY_006）| 找现存 `additional_charge_success` 状态的 consultation |
+| Manual Query（PAY_007）| 找现存 `payment_transactions.status='pending'` 的 Auth |
+| 全额退款（PAY_010）| 找现存 Capture success 交易 |
+
+### 第 3 类：通过其它用例串联
+
+如果目标状态只能通过先跑别的用例达到（且别的用例可以跑），就**编排顺序**串起来。
+例如：先跑 `PAT_001` 注册一个 pending patient → 然后 `APR_001` 才能 approve 它。
+
+---
+
+只有以上三类**都尝试过且确认不可行**的，才能标 blocked。
+
+例外情况：**真正需要 mock 第三方** 的，可以直接 blocked，但要在 skip_reason 明确写「需要 mock X 服务返回 Y 响应」。
+例如：mock cashier 返回 FAILURE 通知、mock SMTP 拦截邮件、mock S3 返回 5xx 等。
+
+### skip_reason 必须结构化
+
+标 blocked 时，`skip_reason` 字段必须包含以下 4 个部分（markdown 风格，便于报告渲染）：
+
+```
+**根因**：<一句话说清楚为什么这个用例没跑>
+
+**已尝试**：<阶段 2 试过哪些方案，为什么失败>
+
+**解锁步骤**：
+1. <具体到 SQL / curl / 文件改动 / 环境变量>
+2. <...>
+
+**难度**：low / medium / high
+```
+
+`low`：DB 注入 / 一条 curl / 复用现存数据可解。
+`medium`：需要多步串联或写少量 fixture 代码（< 50 行）。
+`high`：需要搭建 mock 服务、第三方账号、配置 CI 等基础设施。
+
+报告生成器会按 markdown 渲染这段文本，让人一眼就能知道**怎么解锁**。
+
 ## 进度反馈
 
 - 用例数较多时（> 30）按模块在 `TodoWrite` 中分组，少时每个用例一条。

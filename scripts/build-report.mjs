@@ -356,6 +356,7 @@ function buildVersionReport({ version, project, prev, root }) {
     playwright_test_name: c.playwright_test_name,
     screenshots: c.screenshots || [],
     skip_reason: c.skip_reason,
+    unlock_difficulty: c.unlock_difficulty || null,
     failure: c.failure,
     notes: c.notes || '',
     steps_md: c.steps_md || '',
