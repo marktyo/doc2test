@@ -15,6 +15,16 @@
 
 ---
 
+## 报告长什么样
+
+每跑一次 doc2test 都会产出一个 self-contained 的 HTML dashboard，把 AI 执行明细、Playwright 回归结果、覆盖度自评、修复 prompt 合并到一个页面里 —— 直接 `open test/{version}/report/index.html` 即可。
+
+![doc2test report dashboard](./docs/screenshots/v1.0-report.png)
+
+顶部 5 张卡片汇总：AI 通过 / 失败 / 阻塞跳过 / Playwright 通过 / Playwright 失败。下方 tab 支持按模块、类型、状态筛选 60 条用例，每条可展开看 steps.md / 截图 / 失败上下文，blocked 用例显示"为什么卡住 + 下一步"两段可执行的指引。
+
+---
+
 ## 安装
 
 ### Claude Code
@@ -117,51 +127,16 @@ test/
 
 首版本一次性付全量成本，后续迭代只为"变化的部分"付费 —— Playwright 套件跨版本沉淀，越用越快。
 
-```mermaid
-flowchart TB
-    subgraph v10["v1.0 首版本 · 一次性全量成本"]
-        direction TB
-        A1[阶段1 设计<br/>47 用例 · 全部 pending]
-        A2[阶段2 AI 串行执行<br/>47/47 ≈ 90 min]
-        A3[阶段3 提炼 Playwright<br/>30 个 extract+passed]
-        A4[阶段4 报告 + 回归]
-        A1 --> A2 --> A3 --> A4
-    end
+| 版本 | 阶段 1 设计 | 阶段 2 AI 执行 | 阶段 3 提炼 | 阶段 4 回归 + 报告 |
+|---|---|---|---|---|
+| **v1.0 首版** | 全量生成 47 用例，全部 `pending` | AI 串行跑 47/47（约 90 min） | 把 `extract + passed` 的 30 个提炼成 Playwright spec | AI 报告 + Playwright 首次回归 |
+| **v1.1 迭代** | 对比 v1.0 prd-snapshot 分类：`unchanged 38 / modified 3 / new 8 / removed 0` | AI 只跑 `modified + new` 共 11 个（约 22 min） | 增量更新 Playwright spec（改 3 / 加 8） | `unchanged 38` 由 Playwright 并行回归覆盖；AI + Playwright 合并报告 |
 
-    subgraph v11["v1.1 迭代版本 · 只为变化付费"]
-        direction TB
-        B1[阶段1 PRD diff 分类]
-        B1 --> BU["unchanged 38<br/>status = skipped"]
-        B1 --> BM["modified 3<br/>status = pending"]
-        B1 --> BN["new 8<br/>status = pending"]
-        B1 --> BR["removed 0<br/>不进 test-cases.md"]
-        BM --> B2[阶段2 AI 只跑 11 个<br/>≈ 22 min]
-        BN --> B2
-        B2 --> B3[阶段3 增量提炼<br/>就地改 / 追加 / 删除 test 块]
-        BU -.->|Playwright 并行回归| B4
-        B3 --> B4[阶段4 AI + Playwright<br/>合并 HTML 报告]
-    end
+**核心机制**：
 
-    A1 -.->|写入 prd-snapshot.md| B1
-    A3 ==>|Playwright 套件跨版本持续生长| B3
-
-    classDef heavyAI fill:#fadbd8,stroke:#c0392b,color:#000
-    classDef lightAI fill:#d5f5e3,stroke:#27ae60,color:#000
-    classDef skipped fill:#d6eaf8,stroke:#2874a6,color:#000
-    classDef pw fill:#fdebd0,stroke:#d68910,color:#000
-
-    class A2 heavyAI
-    class B2 lightAI
-    class BU skipped
-    class A3,B3 pw
-```
-
-**读图要点：**
-
-- **红色** = AI 串行全量跑（贵）；**绿色** = AI 串行增量跑（便宜）；**蓝色** = 完全跳过，由 Playwright 覆盖；**橙色** = Playwright 套件沉淀点。
-- **虚线** `prd-snapshot.md` 是版本间 diff 的锚点 —— v1.0 写入快照，v1.1 对照快照分类用例。
-- **粗箭头**是这套设计的核心 —— Playwright 套件只在阶段 3 增长，不按版本切分，每次回归都全量跑。
-- v1.1 的 `unchanged` 用例**完全不消耗 AI 时间**，但在阶段 4 仍由 Playwright 并行回归覆盖 —— 这就是迭代版本省时间的来源。
+- `prd-snapshot.md` 是版本间 diff 的锚点 —— v1.0 写入快照，v1.1 对照快照分类用例
+- Playwright 套件**跨版本沉淀**，只在阶段 3 增长，不按版本切分；每次回归都全量跑
+- 迭代版本省时间的来源 = `unchanged` 用例完全不消耗 AI 时间，但仍由 Playwright 并行覆盖
 
 ### Q2：阶段 2（执行）是串行的吗？能并行跑用例吗？
 

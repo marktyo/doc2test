@@ -10,6 +10,40 @@
 4. 加载 `test/accounts.md` 中的测试账号。若文件不存在或缺少某 `auth` 角色的凭据 → 向用户询问后写入（首次写入时同步把 `test/accounts.md` 加入 `.gitignore`，若 `.gitignore` 已存在该规则则跳过）。
 5. 用 `mcp__chrome-devtools__new_page` 打开一个全新页面，记录 `pageIdx`。
 
+## 登录 recipe 持久化（强制）
+
+每个角色首次登录跑通后，**必须**把"哪个 selector 命中、按什么顺序"落盘到 `test/playwright/fixtures/login-recipe.json`，供阶段 3 的 `global-setup.ts` 直接读取。
+
+```json
+{
+  "patient": {
+    "login_url": "/patient/login",
+    "success_url_pattern": "/patient",
+    "steps": [
+      { "action": "fill", "locator_strategy": "input_nth", "locator_value": "0", "value_from": "credentials.email" },
+      { "action": "fill", "locator_strategy": "input_nth", "locator_value": "1", "value_from": "credentials.password" },
+      { "action": "click", "locator_strategy": "role", "locator_value": { "role": "button", "name": "登录" } }
+    ]
+  },
+  "admin": { ... }
+}
+```
+
+**locator_strategy 取值**（优先用上面的）：
+
+| strategy | locator_value | 何时用 |
+|---|---|---|
+| `role` | `{ "role": "button", "name": "Sign In" }` | 元素有规范的 ARIA role + accessible name（最稳） |
+| `label` | `"邮箱"` | 表单 input 有正确 bind 的 `<label for=...>` |
+| `placeholder` | `"example@mail.com"` | 上两者都不可用，且 placeholder 稳定 |
+| `text` | `"ログアウト"` | 链接/按钮的可见文本 |
+| `input_nth` | `"0"` / `"1"` | 兜底：表单 input 没 label 绑定（如 Next.js shadcn 默认表单），按视觉顺序取第 N 个 |
+| `css` | `"input[name=username]"` | 关键属性稳定（如 Keycloak login） |
+
+**绝不要**用纯随机字符串的 selector（如 `text=邮箱|email`），跨语言场景下会爆。
+
+如果阶段 2 没有任何用例需要该角色，可以跳过该角色的 recipe；阶段 3 检测到缺失会向用户报错并要求补跑。
+
 ## 登录态策略（默认）
 
 依据用例 meta 的 `auth` 字段：
@@ -96,6 +130,58 @@
 - `screenshots`（文件名列表）
 - `failure`（status=failed 时），记录第一个失败的步骤
 - `playwright_test_name` 留空 —— 阶段 3 提炼时回填
+
+### 2.d.1 —— 落盘 selector 证据（强制，passed 用例必写）
+
+`meta.status === "passed"` 且 `playwright_strategy === "extract"` 的用例必须落 `test/{version}/{case-id}/selectors.json`，把这次跑通的关键定位策略记下来，给阶段 3 直接读：
+
+```json
+{
+  "locale": "ja",
+  "interactions": [
+    {
+      "step": 1,
+      "intent": "navigate to admin consultations list",
+      "url": "/admin/consultations"
+    },
+    {
+      "step": 2,
+      "intent": "click first row 詳細",
+      "locator_strategy": "role",
+      "locator_value": { "role": "link", "name": "詳細" },
+      "nth": 0
+    },
+    {
+      "step": 3,
+      "intent": "set estimate amount",
+      "locator_strategy": "label",
+      "locator_value": "概算治療費"
+    }
+  ],
+  "assertions": [
+    {
+      "intent": "page heading",
+      "locator_strategy": "role",
+      "locator_value": { "role": "heading", "name": "受診一覧", "level": 1 }
+    },
+    {
+      "intent": "table column header",
+      "locator_strategy": "text",
+      "locator_value": "概算治療費(Auth)",
+      "exact": true
+    }
+  ]
+}
+```
+
+**强制规则**：
+
+1. `intent` 必填 —— 一句话说明这个 locator 是为了做什么，阶段 3 据此生成 Playwright `expect()` 描述。
+2. `locator_value` 必须是**这次实际命中**的，不要写"应该"或"理想"的 selector。直接从 `take_snapshot` 返回的 accessibility tree 抄过来。
+3. 文本断言尽量用 `exact: true` —— 阶段 3 会优先用 `getByText('xxx', { exact: true })` 避免 strict-mode-violation。
+4. `locale` 记录这次跑用例时应用实际渲染的语言，阶段 3 据此在 spec 里设 cookie / accept-language，保证回归时拿到同一份文本。
+
+阶段 3 读不到这个文件的用例**一律降级为 `ai-only`**，绝不允许凭印象/凭测试用例描述生成 Playwright spec。
 
 ### 2.e —— 为下一个用例恢复环境
 

@@ -8,6 +8,7 @@
 
 - `meta.status === "passed"`
 - `meta.playwright_strategy === "extract"`
+- **存在 `test/{version}/{case-id}/selectors.json`**（阶段 2 §2.d.1 强制要求）—— 这是阶段 3 提炼 Playwright spec 的唯一权威来源。无此文件 → 立即把 `playwright_strategy` 改为 `ai-only`，不要凭描述瞎写 selector。
 - 用例的每个校验步骤都是可验证的（非主观判断）—— 纯 UX 判断类即使被标为 `extract` 也排除（视作策略标注错误，把 meta 改为 `ai-only`）
 
 `defer` 与 `ai-only` 用例在本阶段被有意跳过。
@@ -38,6 +39,27 @@
    ```
    `{role}` 取 lowerCamelCase（例：`auth_modes` 含 `customer`、`seller`、`admin` → 三个 export 常量）。
 3. 把阶段 2 采集的 storage state 按角色落到 `test/playwright/fixtures/auth-{role}.json`（每个 `auth_modes` key 对应一个 JSON）。
+3.1. **从 `test/playwright/fixtures/login-recipe.json`（阶段 2 §"登录 recipe 持久化" 写入）渲染 `test/playwright/global-setup.ts`**。绝不要凭模板假设登录页 selector，**逐条**翻译 recipe 的 `steps[]` 数组：
+
+   ```ts
+   // 由 login-recipe.json.patient.steps 渲染：
+   async function loginPatient(baseURL: string) {
+     const browser = await chromium.launch();
+     const ctx = await browser.newContext();
+     const page = await ctx.newPage();
+     await page.goto(`${baseURL}${recipe.patient.login_url}`);
+     // recipe step 1: { action: 'fill', locator_strategy: 'input_nth', locator_value: '0', ... }
+     await page.locator('input').nth(0).fill(credentials.patient.email);
+     await page.locator('input').nth(1).fill(credentials.patient.password);
+     await page.getByRole('button', { name: '登录' }).click();
+     await page.waitForURL(new RegExp(recipe.patient.success_url_pattern));
+     await ctx.storageState({ path: patientStorageState });
+     await browser.close();
+   }
+   ```
+
+   每一行 Playwright 调用必须对应 recipe 中的某条 step；不允许凭印象加 fallback selector。如果 recipe 缺某角色 → global-setup 不为该角色生成 login 函数 + 向用户报错。
+
 4. 检测包管理器（`pnpm-lock.yaml` / `yarn.lock` / `package-lock.json`），在 `package.json` 加入 `test:e2e` 脚本：
    ```json
    "test:e2e": "playwright test"
@@ -90,10 +112,30 @@ test/playwright/specs/
      ...
    });
    ```
-3. 把阶段 2 的**实际交互**（不是抽象的步骤描述）翻译成 Playwright 调用。复用阶段 2 真正生效的 selector / text。chrome-devtools-mcp 用过 `text=...` 时，优先用 Playwright 的 `getByText` / `getByRole`。
-4. 每个可验证的预期结果对应一个 `expect()` 断言。
-5. 阶段 2 中的主观检查**不**翻译，留给 LLM 阶段。加一行注释：`// 主观检查已故意省略：...`。
-6. 按用例的 `auth` 模式使用对应的 `storageState` fixture。
+3. 从 `selectors.json` 的 `interactions[]` 数组**逐条翻译**成 Playwright 调用。**locator_strategy → Playwright API 映射**：
+
+   | locator_strategy | 翻译成 |
+   |---|---|
+   | `role` | `page.getByRole(role, { name, exact: true })` |
+   | `label` | `page.getByLabel(value, { exact: true })` |
+   | `placeholder` | `page.getByPlaceholder(value)` |
+   | `text` | `page.getByText(value, { exact: true })`（若 `selectors.json` 里 `exact: false` 才放宽） |
+   | `input_nth` | `page.locator('input').nth(N)` |
+   | `css` | `page.locator(value)` |
+
+   带 `nth: N` 的字段统一加 `.nth(N)`。**不要**凭印象写跨语言 OR 正则（如 `/邮箱|email/i`）—— `selectors.json` 已经记录了实际渲染的文本，照抄。
+
+4. 从 `selectors.json` 的 `assertions[]` 翻译成 `expect()` 断言，每个 `intent` 对应一行注释。
+5. **锁定 locale**：每个 spec 文件顶部 `test.beforeEach` 设 cookie `patient_locale` = `selectors.json.locale`（或 `.skill-config.yaml` 的 `options.default_locale`），保证回归时 next-intl 渲染同一份文本，文案 selector 不漂移：
+
+   ```ts
+   test.beforeEach(async ({ context }) => {
+     await context.addCookies([{ name: 'patient_locale', value: 'ja', domain: 'localhost', path: '/' }]);
+   });
+   ```
+
+6. 阶段 2 中的主观检查**不**翻译，留给 LLM 阶段。加一行注释：`// 主观检查已故意省略：...`。
+7. 按用例的 `auth` 模式使用对应的 `storageState` fixture。
 
 ## 修改已有脚本（迭代）
 
@@ -106,27 +148,32 @@ test/playwright/specs/
 - 删除对应的 `test()` 块。
 - 若 spec 文件因此变空，删除该文件。
 
-## 验证
+## 验证（强制真跑，不是 --list）
 
-生成 / 更新脚本后：
+生成 / 更新脚本后**必须**：
 
-1. 跑 `npx playwright test --list` 确认语法合法。
-2. 对受影响的 spec 单独跑一次：`npx playwright test {file}`。
-   - 首次失败说明提炼有误。回去对照阶段 2 的实际记录与生成的脚本。
-   - **不要**因此把用例标 `failed` —— 阶段 2 已经通过，这是提炼质量问题。
-3. 在受影响用例的 `meta.json` 中更新：
+1. **语法门**：跑 `npx playwright test --list` 确认全部 spec 都能被 Playwright 解析。
+2. **行为门**：对每个受影响的 spec **单独真跑一次** `npx playwright test {file}`。这一步不可跳过 —— --list 只能发现语法错，selector 错只有真跑才暴露。
+3. **回填**：每个跑通的用例在 `meta.json` 写入：
    - `playwright_spec`：脚本文件相对路径
    - `playwright_test_name`：`test()` 的完整标题
 
-## 提炼失败的处理
+**不要**因为 Playwright 跑失败就把阶段 2 的 `meta.status` 改为 `failed` —— 阶段 2 通过的事实不变，这只是提炼质量问题。但是失败用例**必须**走下面的自动降级。
 
-用例合格但无法干净翻译（例如依赖一个没有确定性等待条件的实时异步事件）：
+## 自动降级（强制）
 
-- 把 `meta.json` 中的 `playwright_strategy` 降级为 `ai-only`
-- 在 `notes` 中说明原因
-- 跳过提炼，该用例之后仅由 LLM 覆盖
+任一以下情形 → 用例**当场降级**为 `ai-only`，不进入 Playwright 套件：
 
-在阶段 3 总结中列出这些降级，便于用户复核。
+| 情形 | 处理 |
+|---|---|
+| `selectors.json` 不存在 | `playwright_strategy = "ai-only"`，`notes` 写 `"missing selectors.json from stage 2"` |
+| 行为门跑失败 | `playwright_strategy = "ai-only"`，`notes` 写 `"playwright spec failed first run: <error 一行摘要>"`；**同时删除**该 spec 中刚加的 `test()` 块（避免污染回归套件） |
+| 需要不确定性等待 | `playwright_strategy = "ai-only"`，`notes` 写 `"requires non-deterministic wait: <场景>"` |
+| 翻译后断言全是主观判断 | `playwright_strategy = "ai-only"`，`notes` 写 `"all assertions subjective"` |
+
+**降级数量上限**：单次阶段 3 提炼超过 30% 用例降级 → 暂停，向用户报警："selectors.json 质量不足，阶段 2 的 §2.d.1 没认真做"。不要带着大量降级继续。
+
+在阶段 3 交接报告中分别列出：成功 spec 数、降级 spec 数（每条带原因摘要）、自动清理掉的 spec 块数。
 
 ## 向阶段 4 交接
 
