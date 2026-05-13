@@ -27,53 +27,28 @@ The five cards on top summarize AI passed / failed / blocked-or-skipped / Playwr
 
 ## Installation
 
-### Claude Code
-
-**Global install (recommended)** — available across all projects:
+Install via [`npx skills`](https://github.com/vercel-labs/skills) — a cross-agent installer supporting 50+ AI agent clients (Claude Code, Codex, Cursor, Cline, …) that symlinks the skill into each client's directory automatically.
 
 ```bash
-git clone https://github.com/marktyo/doc2test.git ~/.claude/skills/doc2test
+# Global install (recommended) — available across all projects
+npx skills add marktyo/doc2test -g
+
+# Project-level install — only this project, travels with the repo
+npx skills add marktyo/doc2test
+
+# Target a specific client
+npx skills add marktyo/doc2test -g -a claude-code
+npx skills add marktyo/doc2test -g -a codex
 ```
 
-**Project-level install** — available only in the current project, travels with the repo:
+Update / remove:
 
 ```bash
-# from your project root
-git submodule add https://github.com/marktyo/doc2test.git .claude/skills/doc2test
+npx skills update doc2test
+npx skills remove doc2test
 ```
 
-**Via the plugin marketplace (optional)** — best for teams that want versioning and one-click updates:
-
-```text
-/plugin marketplace add marktyo/doc2test
-/plugin install doc2test
-```
-
-### Codex CLI
-
-**Global install:**
-
-```bash
-git clone https://github.com/marktyo/doc2test.git ~/.codex/skills/doc2test
-```
-
-**Project-level install:**
-
-```bash
-git submodule add https://github.com/marktyo/doc2test.git .codex/skills/doc2test
-```
-
-### Sharing across both clients
-
-If you use both Claude Code and Codex on the same machine, clone once to a neutral location and symlink into both skills directories:
-
-```bash
-git clone https://github.com/marktyo/doc2test.git ~/skills/doc2test
-ln -s ~/skills/doc2test ~/.claude/skills/doc2test
-ln -s ~/skills/doc2test ~/.codex/skills/doc2test
-```
-
-A single `git pull` upgrades both clients.
+> When installed to both Claude Code and Codex, `npx skills` symlinks them to a single canonical copy by default — one `update` keeps both clients in sync.
 
 ---
 
@@ -192,7 +167,7 @@ To see the distribution at a glance:
 
 ## Upgrading
 
-Regardless of install method, `git pull` is enough. The Skill holds no local state — every artifact lives under your project's `test/` directory.
+Run `npx skills update doc2test`. The Skill holds no local state — every artifact lives under your project's `test/` directory, so upgrading never touches your data.
 
 ---
 

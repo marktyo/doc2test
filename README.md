@@ -27,53 +27,28 @@
 
 ## 安装
 
-### Claude Code
-
-**全局安装（推荐）** —— 跨所有项目可用：
+通过 [`npx skills`](https://github.com/vercel-labs/skills) 安装 —— 一个跨 50+ AI agent 客户端（Claude Code、Codex、Cursor、Cline 等）通用的 skill 安装器，会自动 symlink 到对应客户端目录。
 
 ```bash
-git clone https://github.com/marktyo/doc2test.git ~/.claude/skills/doc2test
+# 全局安装（推荐）—— 跨所有项目可用
+npx skills add marktyo/doc2test -g
+
+# 项目级安装 —— 仅当前项目可用、随仓库走
+npx skills add marktyo/doc2test
+
+# 只装到指定客户端
+npx skills add marktyo/doc2test -g -a claude-code
+npx skills add marktyo/doc2test -g -a codex
 ```
 
-**项目级安装** —— 仅在当前项目可用、跟着仓库走：
+升级 / 卸载：
 
 ```bash
-# 在目标项目根目录
-git submodule add https://github.com/marktyo/doc2test.git .claude/skills/doc2test
+npx skills update doc2test
+npx skills remove doc2test
 ```
 
-**通过 plugin marketplace（可选）** —— 适合需要版本管理与一键更新的团队：
-
-```text
-/plugin marketplace add marktyo/doc2test
-/plugin install doc2test
-```
-
-### Codex CLI
-
-**全局安装**：
-
-```bash
-git clone https://github.com/marktyo/doc2test.git ~/.codex/skills/doc2test
-```
-
-**项目级安装**：
-
-```bash
-git submodule add https://github.com/marktyo/doc2test.git .codex/skills/doc2test
-```
-
-### 双客户端共存
-
-如果同一台机器既用 Claude Code 又用 Codex，推荐做法：clone 到一个中立位置，然后软链到两个 skills 目录：
-
-```bash
-git clone https://github.com/marktyo/doc2test.git ~/skills/doc2test
-ln -s ~/skills/doc2test ~/.claude/skills/doc2test
-ln -s ~/skills/doc2test ~/.codex/skills/doc2test
-```
-
-`git pull` 一次，两个客户端同时升级。
+> 同时装到 Claude Code 与 Codex 时，`npx skills` 默认用 symlink 共享一份本地副本，`update` 一次双客户端同步生效。
 
 ---
 
@@ -192,7 +167,7 @@ test/
 
 ## 升级
 
-无论安装方式，`git pull` 即可。Skill 不持有本地状态，所有产物都落在你的项目 `test/` 目录下。
+`npx skills update doc2test` 即可。Skill 不持有本地状态，所有产物都落在你的项目 `test/` 目录下，升级不影响任何已有数据。
 
 ---
 
